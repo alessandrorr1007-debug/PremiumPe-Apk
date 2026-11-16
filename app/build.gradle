@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+def config = new Properties()
+def envFile = rootProject.file('.env')
+if (envFile.exists()) envFile.withReader('UTF-8') { config.load(it) }
+def value = { name, fallback ->
+    System.getenv(name) ?: config.getProperty(name, fallback)
+}
+def key = value('SUPABASE_PUBLISHABLE_KEY', '')
+if (key && !key.startsWith('sb_publishable_')) {
+    def claims = key.split('\\.')
+    if (claims.length != 3 ||
+        new groovy.json.JsonSlurper().parseText(new String(Base64.getUrlDecoder().decode(claims[1]), 'UTF-8')).role != 'anon') {
+        throw new GradleException('Usa exclusivamente una clave publicable o anon.')
+    }
+}
+def literal = { groovy.json.JsonOutput.toJson(it) }
+
+android {
+    namespace 'pe.premiumpe.admin'
+    compileSdkVersion "android-37.0"
+    defaultConfig {
+        applicationId 'pe.premiumpe.admin'
+        minSdk 28
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'SUPABASE_URL', literal(value('SUPABASE_URL', ''))
+        buildConfigField 'String', 'SUPABASE_KEY', literal(key)
+        buildConfigField 'String', 'STORE_URL', literal(value('STORE_URL', 'https://premiunpee.netlify.app/'))
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.qa'
+        }
+        release {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
