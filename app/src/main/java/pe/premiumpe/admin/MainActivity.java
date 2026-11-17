@@ -596,23 +596,41 @@ public final class MainActivity extends UiActivity {
         start(new Editors.Settings(this, settings, section, whatsappOnly));
     }
 
-    private void summary() {
-        // Greeting + refresh button
-        LinearLayout greetRow = row();
-        LinearLayout greetCol = column();
-        add(greetCol, text("¡Hola, Administrador!", 21, INK, true));
-        add(greetCol, text("Panel de control de tu tienda", 12, MUTED, false));
-        weight(greetRow, greetCol);
+    LinearLayout storePillButton() {
+        LinearLayout pill = row();
+        pill.setBackground(ripple(PAPER, 11, LINE, 0x189B3B24));
+        pill.setMinimumHeight(dp(38));
+        pad(pill, 10, 6, 10, 6);
+        TextView tv = text("Ver Tienda", 12, INK, true);
+        tv.setSingleLine(true);
+        pill.addView(tv);
+        gap(pill, 5);
+        pill.addView(iconView(R.drawable.ic_external, 14, MUTED));
+        pill.setOnClickListener(v -> openStore());
+        return pill;
+    }
 
-        ImageButton refreshBtn = new ImageButton(this);
-        refreshBtn.setContentDescription("Actualizar datos");
-        refreshBtn.setImageDrawable(tintedIcon(R.drawable.ic_refresh, TERRACOTTA));
-        refreshBtn.setBackground(ripple(PAPER, 22, LINE, 0x229B3B24));
-        refreshBtn.setElevation(dp(1));
-        refreshBtn.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(44)));
-        refreshBtn.setOnClickListener(v -> refresh(true));
-        greetRow.addView(refreshBtn);
-        add(body, greetRow);
+    FrameLayout miniIconSquareButton(int iconRes, String desc, Runnable action) {
+        FrameLayout box = new FrameLayout(this);
+        box.setContentDescription(desc);
+        box.setBackground(ripple(SOFT, 11, LINE, 0x229B3B24));
+        box.setLayoutParams(new LinearLayout.LayoutParams(dp(38), dp(38)));
+        ImageView iv = iconView(iconRes, 18, TERRACOTTA);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(18), dp(18));
+        lp.gravity = Gravity.CENTER;
+        box.addView(iv, lp);
+        box.setOnClickListener(v -> action.run());
+        return box;
+    }
+
+    private void summary() {
+        // Sub-header row matching reference mockup
+        LinearLayout headRow = row();
+        weight(headRow, text("Resumen General", 20, INK, true));
+        headRow.addView(storePillButton());
+        gap(headRow, 6);
+        headRow.addView(miniIconSquareButton(R.drawable.ic_refresh, "Actualizar datos", () -> refresh(true)));
+        add(body, headRow);
         gap(body, 12);
 
         if (!catalogLoaded && catalogError == null) {
@@ -631,50 +649,37 @@ public final class MainActivity extends UiActivity {
             long available = count("available", true);
             long outOfStock = count("available", false);
             long featured = count("featured", true);
+            long visible = count("visible", true);
 
             LinearLayout first = row();
-            statCard(first, "Productos totales", total, R.drawable.ic_products, SOFT, TERRACOTTA, () -> goProducts(0));
+            statCard(first, "Productos Totales", total, visible + " visibles en la tienda",
+                INK, R.drawable.ic_box_outline, SOFT, TERRACOTTA, () -> goProducts(0));
             gap(first, 10);
-            statCard(first, "Disponibles", available, R.drawable.ic_check_circle, GREEN_SOFT, GREEN, () -> goProducts(1));
+            statCard(first, "Disponibles", available, "Listos para entrega",
+                GREEN, R.drawable.ic_check_circle, GREEN_SOFT, GREEN, () -> goProducts(1));
             add(body, first);
             gap(body, 10);
 
             LinearLayout second = row();
-            statCard(second, "Agotados", outOfStock, R.drawable.ic_warning, ROCOTO_SOFT, ROCOTO, () -> goProducts(2));
+            statCard(second, "Agotados", outOfStock, outOfStock == 0 ? "Sin faltantes" : "Requieren reposición",
+                ROCOTO, R.drawable.ic_warning, ROCOTO_SOFT, ROCOTO, () -> goProducts(2));
             gap(second, 10);
-            statCard(second, "Destacados", featured, R.drawable.ic_star, AMBER_SOFT, AMBER, () -> goProducts(5));
+            statCard(second, "Destacados", featured, "En el mazo de portada",
+                TERRACOTTA, R.drawable.ic_star_outline, AMBER_SOFT, TERRACOTTA, () -> goProducts(5));
             add(body, second);
-            gap(body, 10);
-
-            // Promotions wide stat card
-            LinearLayout promoCard = row();
-            promoCard.setBackground(ripple(PAPER, 16, LINE, 0x189B3B24));
-            promoCard.setElevation(dp(2));
-            pad(promoCard, 14, 12, 14, 12);
-            promoCard.addView(iconBadge(R.drawable.ic_promo, 40, 20, SOFT, TERRACOTTA, 12));
-            gap(promoCard, 12);
-            LinearLayout promoText = column();
-            add(promoText, text(Long.toString(offers.size()), 20, INK, true));
-            add(promoText, text("Promociones existentes", 12, MUTED, false));
-            weight(promoCard, promoText);
-            promoCard.addView(iconView(R.drawable.ic_chevron_right, 20, MUTED));
-            promoCard.setOnClickListener(v -> goPromotions());
-            add(body, promoCard);
             gap(body, 14);
         }
 
         // Quick Actions (kept "Acciones rápidas" and "Nuevo producto" labels for QA compatibility)
-        heading(body, "Acciones rápidas");
-        LinearLayout quickRow = row();
-        quickTile(quickRow, "Nuevo producto", R.drawable.ic_plus, () -> productEditor(null));
-        gap(quickRow, 8);
-        quickTile(quickRow, "Promoción", R.drawable.ic_promo, () -> promotionEditor(null));
-        gap(quickRow, 8);
-        quickTile(quickRow, "WhatsApp", R.drawable.ic_whatsapp, () -> settingsEditor(Editors.SettingsSection.STORE_INFO, true));
-        gap(quickRow, 8);
-        quickTile(quickRow, "Ver tienda", R.drawable.ic_store, this::openStore);
-        add(body, quickRow);
-        gap(body, 14);
+        add(body, text("Acciones rápidas", 13, MUTED, true));
+        gap(body, 8);
+        quickActionCard("Nuevo producto", "Agregar servicio o plan", R.drawable.ic_plus, () -> productEditor(null));
+        quickActionCard("Nueva promoción",
+            "Crear o gestionar combos" + (catalogLoaded ? " · " + offers.size() : ""),
+            R.drawable.ic_promo, this::goPromotions);
+        quickActionCard("WhatsApp de atención", "Configurar número de contacto",
+            R.drawable.ic_whatsapp, () -> settingsEditor(Editors.SettingsSection.STORE_INFO, true));
+        gap(body, 4);
 
         // Compact alert banner if needed
         if (hasPendingAlerts()) {
@@ -725,57 +730,59 @@ public final class MainActivity extends UiActivity {
                     add(restock, line);
                     if (i < sold.size() - 1) gap(restock, 8);
                 }
-            } else {
-                LinearLayout okRow = row();
-                okRow.setBackground(rounded(GREEN_SOFT, 14, 0));
-                pad(okRow, 12, 10, 12, 10);
-                okRow.addView(iconView(R.drawable.ic_check_circle, 18, GREEN));
-                gap(okRow, 8);
-                okRow.addView(text("Todos los productos tienen stock disponible.", 12, GREEN, true));
-                add(body, okRow);
             }
         }
     }
 
-    private void statCard(LinearLayout row, String title, long count, int iconRes, int iconBg, int iconTint, Runnable onClick) {
-        LinearLayout cell = row();
+    private void statCard(LinearLayout row, String title, long count, String subtitle, int numColor,
+                          int iconRes, int iconBg, int iconTint, Runnable onClick) {
+        LinearLayout cell = column();
         cell.setBackground(ripple(PAPER, 16, LINE, 0x189B3B24));
         cell.setElevation(dp(2));
-        pad(cell, 12, 12, 12, 12);
-        cell.setMinimumHeight(dp(74));
+        pad(cell, 13, 12, 12, 12);
+        cell.setMinimumHeight(dp(98));
 
-        cell.addView(iconBadge(iconRes, 38, 20, iconBg, iconTint, 12));
-        gap(cell, 10);
+        LinearLayout top = row();
+        TextView titleTv = text(title, 12, MUTED, true);
+        titleTv.setMaxLines(2);
+        weight(top, titleTv);
+        gap(top, 6);
+        top.addView(iconBadge(iconRes, 32, 17, iconBg, iconTint, 16));
+        add(cell, top);
+        gap(cell, 6);
 
-        LinearLayout textCol = column();
-        add(textCol, text(Long.toString(count), 21, INK, true));
-        TextView label = text(title, 11, MUTED, false);
-        label.setMaxLines(2);
-        add(textCol, label);
-        weight(cell, textCol);
+        add(cell, text(Long.toString(count), 24, numColor, true));
+        gap(cell, 2);
+        TextView subTv = text(subtitle, 11, MUTED, false);
+        subTv.setMaxLines(1);
+        subTv.setEllipsize(TextUtils.TruncateAt.END);
+        add(cell, subTv);
 
         cell.setContentDescription(title + ", " + count);
         cell.setOnClickListener(v -> onClick.run());
         weight(row, cell);
     }
 
-    private void quickTile(LinearLayout row, String label, int iconRes, Runnable action) {
-        LinearLayout tile = column();
-        tile.setGravity(Gravity.CENTER_HORIZONTAL);
-        tile.setBackground(ripple(PAPER, 14, LINE, 0x189B3B24));
-        tile.setElevation(dp(1));
-        pad(tile, 4, 10, 4, 10);
-        tile.setMinimumHeight(dp(76));
+    private void quickActionCard(String title, String subtitle, int iconRes, Runnable action) {
+        LinearLayout card = row();
+        card.setBackground(ripple(PAPER, 16, LINE, 0x189B3B24));
+        card.setElevation(dp(1));
+        pad(card, 12, 11, 12, 11);
+        card.setMinimumHeight(dp(60));
 
-        tile.addView(iconBadge(iconRes, 38, 20, SOFT, TERRACOTTA, 19));
-        gap(tile, 6);
-        TextView tv = text(label, 11, INK, true);
-        tv.setGravity(Gravity.CENTER);
-        tv.setMaxLines(2);
-        tile.addView(tv);
+        card.addView(iconBadge(iconRes, 40, 20, SOFT, TERRACOTTA, 12));
+        gap(card, 12);
 
-        tile.setOnClickListener(v -> action.run());
-        weight(row, tile);
+        LinearLayout info = column();
+        add(info, text(title, 15, INK, true));
+        gap(info, 2);
+        add(info, text(subtitle, 12, MUTED, false));
+        weight(card, info);
+
+        card.addView(iconView(R.drawable.ic_chevron_right, 20, MUTED));
+        card.setOnClickListener(v -> action.run());
+        add(body, card);
+        gap(body, 8);
     }
 
     private boolean hasBenefits(JSONObject product) {
@@ -841,33 +848,10 @@ public final class MainActivity extends UiActivity {
     }
 
     void productActions(JSONObject product) {
-        List<String> labels = new ArrayList<>(List.of(
-            "Editar ficha completa",
-            "Cambiar precio",
-            product.optBoolean("available") ? "Marcar agotado" : "Marcar disponible",
-            product.optBoolean("visible") ? "Ocultar de la tienda" : "Mostrar en la tienda",
-            product.optBoolean("featured") ? "Quitar destacado" : "Marcar como destacado",
-            "Duplicar como oculto",
-            "Eliminar producto"
-        ));
-        new AlertDialog.Builder(this)
-            .setTitle(Catalog.text(product, "name"))
-            .setItems(labels.toArray(new String[0]), (dialog, item) -> {
-                switch (item) {
-                    case 0 -> productEditor(product);
-                    case 1 -> quickPrice(product);
-                    case 2 -> patchProduct(product, "available", !product.optBoolean("available"));
-                    case 3 -> patchProduct(product, "visible", !product.optBoolean("visible"));
-                    case 4 -> patchProduct(product, "featured", !product.optBoolean("featured"));
-                    case 5 -> mutate(() -> api.change("POST", PRODUCTS, copyProduct(product), 1), "Copia creada como oculta.");
-                    case 6 -> confirm("¿Eliminar «" + Catalog.text(product, "name") + "»? Puede afectar a sus promociones.",
-                        () -> mutate(() -> api.change("DELETE", where(PRODUCTS, id(product)), null, 1), "Producto eliminado."));
-                    default -> {}
-                }
-            }).show();
+        ProductActionsSheet.show(this, product);
     }
 
-    private void patchProduct(JSONObject product, String field, Object value) {
+    void patchProduct(JSONObject product, String field, Object value) {
         mutate(() -> api.change("PATCH", where(PRODUCTS, id(product)), object(field, value), 1), "Producto actualizado.");
     }
 
@@ -930,14 +914,15 @@ public final class MainActivity extends UiActivity {
     }
 
     private void settingsList() {
-        LinearLayout header = row();
-        header.addView(iconBadge(R.drawable.ic_settings, 46, 24, SOFT, TERRACOTTA, 14));
-        gap(header, 12);
-        LinearLayout headCol = column();
-        add(headCol, text("Ajustes", 22, INK, true));
-        add(headCol, text("Configura tu tienda y personaliza la información", 12, MUTED, false));
-        weight(header, headCol);
-        add(body, header);
+        LinearLayout headRow = row();
+        TextView titleTv = text("Configuración de la Tienda", 19, INK, true);
+        titleTv.setMaxLines(2);
+        weight(headRow, titleTv);
+        gap(headRow, 8);
+        headRow.addView(storePillButton());
+        gap(headRow, 6);
+        headRow.addView(miniIconSquareButton(R.drawable.ic_refresh, "Actualizar datos", () -> refresh(true)));
+        add(body, headRow);
         gap(body, 14);
 
         if (settingsError != null) {
@@ -949,19 +934,17 @@ public final class MainActivity extends UiActivity {
         }
 
         // Categorized menu items matching reference mockup
-        addSettingsItem(Editors.SettingsSection.STORE_INFO, R.drawable.ic_mail, "Nombre, WhatsApp y horarios");
-        addSettingsItem(Editors.SettingsSection.HERO, R.drawable.ic_image, "Título, subtítulo y contenido");
-        addSettingsItem(Editors.SettingsSection.SUPPORT_PAYMENTS, R.drawable.ic_shield, "Métodos de pago, soporte y garantías");
-        addSettingsItem(Editors.SettingsSection.FAQ, R.drawable.ic_help, "Respuestas para tus clientes");
-        addSettingsItem(Editors.SettingsSection.SOCIAL, R.drawable.ic_share, "Enlaces y perfiles de PremiumPe");
+        addSettingsItem(Editors.SettingsSection.STORE_INFO, R.drawable.ic_store);
+        addSettingsItem(Editors.SettingsSection.HERO, R.drawable.ic_image);
+        addSettingsItem(Editors.SettingsSection.SUPPORT_PAYMENTS, R.drawable.ic_shield);
+        addSettingsItem(Editors.SettingsSection.FAQ, R.drawable.ic_help);
+        addSettingsItem(Editors.SettingsSection.SOCIAL, R.drawable.ic_share);
 
         gap(body, 6);
-        add(body, iconButton("Ver tienda pública", R.drawable.ic_external, this::openStore, false));
-        gap(body, 8);
         add(body, dangerButton("Cerrar sesión", R.drawable.ic_logout, () -> endSession("")));
     }
 
-    private void addSettingsItem(Editors.SettingsSection section, int menuIcon, String desc) {
+    private void addSettingsItem(Editors.SettingsSection section, int menuIcon) {
         LinearLayout card = row();
         card.setBackground(ripple(PAPER, 16, LINE, 0x189B3B24));
         card.setElevation(dp(2));
@@ -972,9 +955,9 @@ public final class MainActivity extends UiActivity {
         gap(card, 12);
 
         LinearLayout info = column();
-        add(info, text(section.title, 15, INK, true));
+        add(info, text(section.menuTitle, 15, INK, true));
         gap(info, 2);
-        add(info, text(desc, 12, MUTED, false));
+        add(info, text(section.subtitle, 12, MUTED, false));
         weight(card, info);
 
         card.addView(iconView(R.drawable.ic_chevron_right, 20, MUTED));

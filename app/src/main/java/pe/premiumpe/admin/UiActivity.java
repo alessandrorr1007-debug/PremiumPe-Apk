@@ -134,7 +134,10 @@ abstract class UiActivity extends Activity {
         into.addView(new View(this), horizontal, vertical);
     }
 
-    void add(LinearLayout into, View child) { into.addView(child, -1, -2); }
+    void add(LinearLayout into, View child) {
+        if (into.getOrientation() == LinearLayout.HORIZONTAL) into.addView(child, -2, -2);
+        else into.addView(child, -1, -2);
+    }
 
     void weight(LinearLayout into, View child) {
         into.addView(child, new LinearLayout.LayoutParams(0, -2, 1f));

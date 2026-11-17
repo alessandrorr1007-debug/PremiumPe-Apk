@@ -32,20 +32,20 @@ final class Editors {
     private Editors() {}
 
     enum SettingsSection {
-        STORE_INFO("Datos de la tienda", "Información principal", "Datos de contacto y atención", R.drawable.ic_store),
-        HERO("Portada", "Contenido principal", "Personaliza la portada de tu tienda", R.drawable.ic_image),
-        SUPPORT_PAYMENTS("Atención y pagos", "Pagos y soporte", "Configura monedas, métodos de pago y garantías", R.drawable.ic_shield),
-        FAQ("Preguntas frecuentes", "Gestión de preguntas", "Administra las preguntas y respuestas de tu tienda", R.drawable.ic_help),
-        SOCIAL("Redes sociales", "Enlaces de tu tienda", "Agrega o actualiza tus redes sociales", R.drawable.ic_share);
+        STORE_INFO("Datos de la tienda", "Datos de la tienda", "Nombre, WhatsApp, moneda y pagos", R.drawable.ic_store),
+        HERO("Portada (Hero)", "Portada", "Textos del banner principal (Hero)", R.drawable.ic_image),
+        SUPPORT_PAYMENTS("Atención y soporte", "Atención y Soporte", "Horarios, respuesta y garantía", R.drawable.ic_shield),
+        FAQ("Preguntas frecuentes", "Preguntas Frecuentes (FAQ)", "Gestiona las preguntas y respuestas", R.drawable.ic_help),
+        SOCIAL("Redes sociales", "Redes Sociales", "Enlaces de Instagram, TikTok y Facebook", R.drawable.ic_share);
 
-        final String title;
-        final String heading;
+        final String menuTitle;
+        final String pageTitle;
         final String subtitle;
         final int icon;
 
-        SettingsSection(String title, String heading, String subtitle, int icon) {
-            this.title = title;
-            this.heading = heading;
+        SettingsSection(String menuTitle, String pageTitle, String subtitle, int icon) {
+            this.menuTitle = menuTitle;
+            this.pageTitle = pageTitle;
             this.subtitle = subtitle;
             this.icon = icon;
         }
@@ -76,6 +76,8 @@ final class Editors {
         abstract Object snapshot();
         abstract MainActivity.Operation prepareSave() throws Exception;
 
+        String saveButtonLabel() { return "Guardar"; }
+
         void show() {
             app.pageShell(app.editorTopBar(title(), this::cancel), true);
             form = app.body;
@@ -102,7 +104,7 @@ final class Editors {
             LinearLayout buttons = app.row();
             app.weight(buttons, app.button("Cancelar", this::cancel, false));
             app.gap(buttons, 10);
-            app.weight(buttons, app.iconButton("Guardar", R.drawable.ic_check, () -> {
+            app.weight(buttons, app.iconButton(saveButtonLabel(), R.drawable.ic_check, () -> {
                 app.hideKeyboard();
                 showError("");
                 try {
@@ -507,22 +509,22 @@ final class Editors {
         private final boolean whatsappOnly;
         private final List<Faq> faq = new ArrayList<>();
         private LinearLayout faqRows;
-        private Spinner currencySpinner;
-        private EditText currencyCustom;
 
         private static final class Faq {
             final LinearLayout card;
-            final TextView titleView;
+            final TextView numberLabel;
+            final TextView previewTitle;
             final ImageView chevron;
             final LinearLayout details;
             final EditText question;
             final EditText answer;
             boolean expanded;
 
-            Faq(LinearLayout card, TextView titleView, ImageView chevron, LinearLayout details,
-                EditText question, EditText answer, boolean expanded) {
+            Faq(LinearLayout card, TextView numberLabel, TextView previewTitle, ImageView chevron,
+                LinearLayout details, EditText question, EditText answer, boolean expanded) {
                 this.card = card;
-                this.titleView = titleView;
+                this.numberLabel = numberLabel;
+                this.previewTitle = previewTitle;
                 this.chevron = chevron;
                 this.details = details;
                 this.question = question;
@@ -537,7 +539,8 @@ final class Editors {
             this.whatsappOnly = whatsappOnly;
         }
 
-        @Override String title() { return whatsappOnly ? "Editar WhatsApp" : section.title; }
+        @Override String title() { return whatsappOnly ? "Editar WhatsApp" : section.pageTitle; }
+        @Override String saveButtonLabel() { return "Guardar Cambios"; }
 
         private String phone() {
             String digits = text(original, "whatsapp_number").replaceAll("[^0-9]", "");
@@ -545,17 +548,6 @@ final class Editors {
         }
 
         @Override void build() {
-            // Section intro header card matching mockup
-            LinearLayout intro = app.row();
-            intro.addView(app.iconBadge(section.icon, 46, 24, SOFT, TERRACOTTA, 14));
-            app.gap(intro, 12);
-            LinearLayout introCol = app.column();
-            app.add(introCol, app.text(whatsappOnly ? "WhatsApp de atención" : section.heading, 17, INK, true));
-            app.add(introCol, app.text(section.subtitle, 12, MUTED, false));
-            app.weight(intro, introCol);
-            app.add(form, intro);
-            app.gap(form, 14);
-
             switch (section) {
                 case STORE_INFO -> buildStoreInfo();
                 case HERO -> buildHero();
@@ -568,11 +560,30 @@ final class Editors {
         private void buildStoreInfo() {
             LinearLayout card = app.card(form);
             if (!whatsappOnly) {
-                iconField(card, "store_name", "Nombre de la tienda", R.drawable.ic_store,
-                    text(original, "store_name"), "PremiumPe", LINE_TEXT, 0);
+                field(card, "store_name", "Nombre de la Tienda *", text(original, "store_name"), LINE_TEXT, 0);
             }
-            iconField(card, "whatsapp_number", "WhatsApp de Perú (+51)", R.drawable.ic_whatsapp,
-                phone(), "942990279", InputType.TYPE_CLASS_PHONE, 0);
+
+            // WhatsApp (+51 prefix pill + phone input)
+            app.add(card, app.text("Número de WhatsApp (Perú) *", 13, INK, true));
+            app.gap(card, 5);
+            LinearLayout phoneRow = app.row();
+            TextView prefix = app.text("+51", 14, TERRACOTTA, true);
+            prefix.setBackground(app.rounded(SOFT, 12, LINE));
+            prefix.setGravity(Gravity.CENTER);
+            prefix.setMinimumHeight(app.dp(48));
+            app.pad(prefix, 14, 0, 14, 0);
+            phoneRow.addView(prefix);
+            app.gap(phoneRow, 8);
+
+            LinearLayout phoneInputWrap = app.column();
+            EditText phoneEdit = app.iconInput(phoneInputWrap, "", 0, phone(), "942990279", InputType.TYPE_CLASS_PHONE, false);
+            app.watch(phoneEdit, app::recordActivity);
+            fields.put("whatsapp_number", phoneEdit);
+            // Remove trailing default gap inside wrapper
+            if (phoneInputWrap.getChildCount() > 1) phoneInputWrap.removeViewAt(phoneInputWrap.getChildCount() - 1);
+            app.weight(phoneRow, phoneInputWrap);
+            app.add(card, phoneRow);
+            app.gap(card, 10);
 
             app.add(card, app.iconButton("Abrir WhatsApp", R.drawable.ic_external, () -> {
                 try {
@@ -581,103 +592,105 @@ final class Editors {
                 } catch (Exception error) {
                     app.alert("Ingresa un número válido de 9 dígitos y verifica WhatsApp.");
                 }
-            }, true));
+            }, false));
 
             if (!whatsappOnly) {
                 app.gap(card, 12);
-                iconField(card, "support_hours", "Horarios de atención", R.drawable.ic_clock,
-                    text(original, "support_hours"), "Atención por WhatsApp", LINE_TEXT, 0);
-                iconField(card, "response_time", "Tiempo de respuesta", R.drawable.ic_bolt,
-                    text(original, "response_time"), "Respuesta por orden de llegada", LINE_TEXT, 0);
+                String savedCurrency = text(original, "currency").isEmpty() ? "S/" : text(original, "currency");
+                field(card, "currency", "Símbolo de Moneda", savedCurrency, LINE_TEXT, 12);
+
+                EditText payField = field(card, "payment_methods", "Métodos de Pago",
+                    text(original, "payment_methods").isEmpty() ? "Yape y Plin" : text(original, "payment_methods"),
+                    LINE_TEXT, 0);
+                LinearLayout quickPay = app.row();
+                for (String preset : new String[]{"Yape y Plin", "Yape, Plin y Transferencia"}) {
+                    TextView chip = app.text(preset, 11, TERRACOTTA, true);
+                    chip.setBackground(app.ripple(SOFT, 10, LINE, 0x229B3B24));
+                    app.pad(chip, 10, 6, 10, 6);
+                    chip.setOnClickListener(v -> payField.setText(preset));
+                    quickPay.addView(chip);
+                    app.gap(quickPay, 6);
+                }
+                app.add(card, quickPay);
             }
         }
 
         private void buildHero() {
             LinearLayout card = app.card(form);
-            iconField(card, "hero_badge", "Etiqueta", R.drawable.ic_promo,
-                text(original, "hero_badge"), "Perú Express", LINE_TEXT, 0);
-            iconField(card, "hero_title", "Título", R.drawable.ic_text,
-                text(original, "hero_title"), "Tus plataformas favoritas, al precio justo", LINE_TEXT, 0);
-            iconField(card, "hero_subtitle", "Subtítulo", R.drawable.ic_text,
-                text(original, "hero_subtitle"), "Elige, combina y pide por WhatsApp en minutos.", MULTILINE, 0);
+            field(card, "hero_badge", "Etiqueta / Badge del Hero", text(original, "hero_badge"), LINE_TEXT, 0);
+            field(card, "hero_title", "Título Principal del Hero *", text(original, "hero_title"), LINE_TEXT, 0);
+            field(card, "hero_subtitle", "Subtítulo del Hero", text(original, "hero_subtitle"), MULTILINE, 0);
         }
 
         private void buildSupportPayments() {
             LinearLayout card = app.card(form);
-            String savedCurrency = text(original, "currency").isEmpty() ? "S/" : text(original, "currency");
-            String[] currencyOptions = {"S/  ·  Soles (PEN)", "$  ·  Dólares (USD)", "Otro símbolo"};
-            int initialIdx = savedCurrency.equals("S/") ? 0 : (savedCurrency.equals("$") ? 1 : 2);
+            labeledIconRow(card, R.drawable.ic_clock, AMBER, "Horario de Soporte (Opcional)");
+            field(card, "support_hours", "", text(original, "support_hours"), LINE_TEXT, 0);
 
-            currencySpinner = app.choices(card, "Moneda", currencyOptions, initialIdx, null);
-            currencyCustom = iconField(card, "currency", "Símbolo personalizado", R.drawable.ic_wallet,
-                savedCurrency, "S/", LINE_TEXT, 12);
-            if (initialIdx != 2) currencyCustom.setVisibility(View.GONE);
-            // Hide wrapper of custom field unless "Otro" selected
-            View customBox = (View) currencyCustom.getParent();
-            customBox.setVisibility(initialIdx == 2 ? View.VISIBLE : View.GONE);
+            labeledIconRow(card, R.drawable.ic_bolt, GREEN, "Tiempo de Respuesta (Opcional)");
+            field(card, "response_time", "", text(original, "response_time"), LINE_TEXT, 0);
 
-            currencySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                    if (pos == 0) {
-                        currencyCustom.setText("S/");
-                        customBox.setVisibility(View.GONE);
-                    } else if (pos == 1) {
-                        currencyCustom.setText("$");
-                        customBox.setVisibility(View.GONE);
-                    } else {
-                        customBox.setVisibility(View.VISIBLE);
-                        currencyCustom.setVisibility(View.VISIBLE);
-                    }
-                }
-                @Override public void onNothingSelected(AdapterView<?> p) {}
-            });
-
-            EditText payField = iconField(card, "payment_methods", "Métodos de pago", R.drawable.ic_wallet,
-                text(original, "payment_methods"), "Yape y Plin", LINE_TEXT, 0);
-
-            LinearLayout quickPay = app.row();
-            for (String preset : new String[]{"Yape y Plin", "Yape, Plin y Transferencia"}) {
-                TextView chip = app.text(preset, 11, TERRACOTTA, true);
-                chip.setBackground(app.ripple(SOFT, 10, LINE, 0x229B3B24));
-                app.pad(chip, 10, 6, 10, 6);
-                chip.setOnClickListener(v -> payField.setText(preset));
-                quickPay.addView(chip);
-                app.gap(quickPay, 6);
-            }
-            app.add(card, quickPay);
-            app.gap(card, 12);
-
-            field(card, "warranty_text", "Garantía o reposición",
+            field(card, "warranty_text", "Texto de Garantía y Reposición (Opcional)",
                 text(original, "warranty_text"), MULTILINE, 0);
         }
 
+        private void labeledIconRow(LinearLayout parent, int iconRes, int tint, String label) {
+            LinearLayout row = app.row();
+            row.addView(app.iconView(iconRes, 17, tint));
+            app.gap(row, 6);
+            row.addView(app.text(label, 13, INK, true));
+            app.add(parent, row);
+            app.gap(parent, 5);
+        }
+
         private void buildFaq() {
+            LinearLayout topRow = app.row();
+            app.weight(topRow, app.text("Preguntas frecuentes", 14, MUTED, true));
+            Button addBtn = app.iconButton("Agregar pregunta", R.drawable.ic_plus, () -> addFaq("", "", true), true);
+            addBtn.setTextSize(13);
+            addBtn.setMinHeight(app.dp(42));
+            addBtn.setMinimumHeight(app.dp(42));
+            app.pad(addBtn, 12, 6, 14, 6);
+            topRow.addView(addBtn);
+            app.add(form, topRow);
+            app.gap(form, 12);
+
             faqRows = app.column();
             app.add(form, faqRows);
             List<JSONObject> list = list(array(original, "faq"));
             for (int i = 0; i < list.size(); i++) {
                 JSONObject item = list.get(i);
-                addFaq(text(item, "question"), text(item, "answer"), i == list.size() - 1 && list.size() <= 3);
+                addFaq(text(item, "question"), text(item, "answer"), false);
             }
-            app.gap(form, 4);
-            app.add(form, app.iconButton("Agregar pregunta", R.drawable.ic_plus, () -> addFaq("", "", true), true));
         }
 
         private void addFaq(String question, String answer, boolean startExpanded) {
             LinearLayout card = app.card(faqRows);
 
-            LinearLayout header = app.row();
-            header.setMinimumHeight(app.dp(40));
-            header.addView(app.iconView(R.drawable.ic_text, 18, MUTED));
-            app.gap(header, 10);
-            TextView titleView = app.text(question.isEmpty() ? "Nueva pregunta" : question, 14, INK, true);
-            titleView.setMaxLines(2);
-            titleView.setEllipsize(TextUtils.TruncateAt.END);
-            app.weight(header, titleView);
-            app.gap(header, 8);
-            ImageView chevron = app.iconView(startExpanded ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down, 22, MUTED);
-            header.addView(chevron);
-            app.add(card, header);
+            LinearLayout headerTop = app.row();
+            TextView numLabel = app.text("Pregunta #" + (faq.size() + 1), 12, TERRACOTTA, true);
+            app.weight(headerTop, numLabel);
+            ImageButton delIcon = new ImageButton(app);
+            delIcon.setContentDescription("Eliminar pregunta");
+            delIcon.setImageDrawable(app.tintedIcon(R.drawable.ic_trash_outline, MUTED));
+            delIcon.setBackground(app.ripple(0x00000000, 18, 0, 0x22B33022));
+            delIcon.setLayoutParams(new LinearLayout.LayoutParams(app.dp(36), app.dp(36)));
+            headerTop.addView(delIcon);
+            app.add(card, headerTop);
+            app.gap(card, 4);
+
+            LinearLayout previewRow = app.row();
+            previewRow.setBackground(app.rounded(BG, 11, LINE));
+            previewRow.setMinimumHeight(app.dp(44));
+            app.pad(previewRow, 12, 8, 10, 8);
+            TextView previewTitle = app.text(question.isEmpty() ? "Nueva pregunta…" : question, 14, INK, false);
+            previewTitle.setMaxLines(2);
+            previewTitle.setEllipsize(TextUtils.TruncateAt.END);
+            app.weight(previewRow, previewTitle);
+            app.gap(previewRow, 8);
+            ImageView chevron = app.iconView(startExpanded ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down, 20, MUTED);
+            previewRow.addView(chevron);
+            app.add(card, previewRow);
 
             LinearLayout details = app.column();
             details.setVisibility(startExpanded ? View.VISIBLE : View.GONE);
@@ -688,34 +701,26 @@ final class Editors {
             app.watch(qField, () -> {
                 app.recordActivity();
                 String t = qField.getText().toString().trim();
-                titleView.setText(t.isEmpty() ? "Nueva pregunta" : t);
+                previewTitle.setText(t.isEmpty() ? "Nueva pregunta…" : t);
             });
             app.watch(aField, app::recordActivity);
 
-            Faq row = new Faq(card, titleView, chevron, details, qField, aField, startExpanded);
+            Faq row = new Faq(card, numLabel, previewTitle, chevron, details, qField, aField, startExpanded);
+            app.add(card, details);
 
-            LinearLayout rowActions = app.row();
-            rowActions.setGravity(Gravity.END);
-            TextView collapseBtn = app.text("Contraer", 12, TERRACOTTA, true);
-            collapseBtn.setBackground(app.ripple(SOFT, 10, 0, 0x229B3B24));
-            app.pad(collapseBtn, 12, 8, 12, 8);
-            collapseBtn.setOnClickListener(v -> toggleFaq(row));
-            rowActions.addView(collapseBtn);
-            app.gap(rowActions, 8);
-
-            TextView delBtn = app.text("Eliminar", 12, ROCOTO, true);
-            delBtn.setBackground(app.ripple(ROCOTO_SOFT, 10, 0, 0x22B33022));
-            app.pad(delBtn, 12, 8, 12, 8);
-            delBtn.setOnClickListener(v -> {
+            previewRow.setOnClickListener(v -> toggleFaq(row));
+            delIcon.setOnClickListener(v -> {
                 faq.remove(row);
                 faqRows.removeView(card);
+                renumberFaqs();
             });
-            rowActions.addView(delBtn);
-            app.add(details, rowActions);
-
-            app.add(card, details);
-            header.setOnClickListener(v -> toggleFaq(row));
             faq.add(row);
+        }
+
+        private void renumberFaqs() {
+            for (int i = 0; i < faq.size(); i++) {
+                faq.get(i).numberLabel.setText("Pregunta #" + (i + 1));
+            }
         }
 
         private void toggleFaq(Faq row) {
@@ -730,12 +735,26 @@ final class Editors {
             LinearLayout card = app.card(form);
             JSONObject social = original.optJSONObject("social_links");
             if (social == null) social = new JSONObject();
-            iconField(card, "instagram", "Instagram", R.drawable.ic_share,
-                text(social, "instagram"), "https://instagram.com/premiumpe", URL, 0);
-            iconField(card, "tiktok", "TikTok", R.drawable.ic_share,
-                text(social, "tiktok"), "https://www.tiktok.com/@premiumpe", URL, 0);
-            iconField(card, "facebook", "Facebook", R.drawable.ic_share,
-                text(social, "facebook"), "https://facebook.com/premiumpe", URL, 0);
+
+            socialField(card, "instagram", "Instagram URL", R.drawable.ic_instagram, 0xFFE1306C,
+                text(social, "instagram"), "https://instagram.com/tu_cuenta");
+            socialField(card, "tiktok", "TikTok URL", R.drawable.ic_tiktok, 0xFF1F1B1A,
+                text(social, "tiktok"), "https://www.tiktok.com/@premiumpe");
+            socialField(card, "facebook", "Facebook URL", R.drawable.ic_facebook, 0xFF1877F2,
+                text(social, "facebook"), "https://facebook.com/tu_pagina");
+        }
+
+        private void socialField(LinearLayout card, String key, String label, int iconRes, int iconTint,
+                                 String current, String hint) {
+            LinearLayout row = app.row();
+            row.addView(app.iconView(iconRes, 22, iconTint));
+            app.gap(row, 12);
+            LinearLayout col = app.column();
+            EditText edit = app.iconInput(col, label, 0, current, hint, URL, false);
+            app.watch(edit, app::recordActivity);
+            fields.put(key, edit);
+            app.weight(row, col);
+            app.add(card, row);
         }
 
         @Override Object snapshot() {
@@ -758,7 +777,6 @@ final class Editors {
             boolean isNew = !original.has("id");
 
             if (isNew) {
-                // Seed required defaults when inserting row id=1 for the first time
                 payload.put("id", 1);
                 String existingPhone = text(original, "whatsapp_number");
                 if (!existingPhone.isEmpty()) payload.put("whatsapp_number", existingPhone);
@@ -774,8 +792,8 @@ final class Editors {
                     if (!whatsappOnly) {
                         name(value("store_name"));
                         payload.put("store_name", value("store_name"));
-                        payload.put("support_hours", value("support_hours"));
-                        payload.put("response_time", value("response_time"));
+                        payload.put("currency", value("currency").isEmpty() ? "S/" : value("currency"));
+                        payload.put("payment_methods", value("payment_methods").isEmpty() ? "Yape y Plin" : value("payment_methods"));
                     }
                 }
                 case HERO -> {
@@ -785,8 +803,8 @@ final class Editors {
                     payload.put("hero_subtitle", value("hero_subtitle"));
                 }
                 case SUPPORT_PAYMENTS -> {
-                    payload.put("currency", value("currency").isEmpty() ? "S/" : value("currency"));
-                    payload.put("payment_methods", value("payment_methods").isEmpty() ? "Yape y Plin" : value("payment_methods"));
+                    payload.put("support_hours", value("support_hours"));
+                    payload.put("response_time", value("response_time"));
                     payload.put("warranty_text", value("warranty_text"));
                 }
                 case FAQ -> {
